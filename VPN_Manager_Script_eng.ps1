@@ -379,6 +379,62 @@ function Change-ExistingServer {
     Show-MainMenu
 }
 
+# FUNCTION TO ENABLE VPN
+
+function Enable-VpnMenu {
+    Write-Host ""
+    Write-Host "--- Enable VPN ---" -ForegroundColor Yellow
+    Write-Host "--------------------"
+    try {
+        $vpnConnections = @(Get-VpnConnection -ErrorAction SilentlyContinue)
+        if ($vpnConnections.Count -eq 0) {
+            Write-Host "No saved VPN connections to enable!" -ForegroundColor Red
+            Show-MainMenu
+            return
+        }
+
+        Write-Host "Select VPN connection to enable:"
+        for ($i = 0; $i -lt $vpnConnections.Count; $i++) {
+            Write-Host "$($i + 1). $($vpnConnections[$i].Name)"
+        }
+        Write-Host "0. Exit"
+        Write-Host "--------------------------------"
+
+        $choice = Read-Host "Enter VPN number to enable or 0 to return:"
+
+        if ($choice -eq "0") {
+            Show-MainMenu
+            return
+        }
+
+        if ($choice -notmatch "^\d+$" -or [int]$choice -lt 1 -or [int]$choice -gt $vpnConnections.Count) {
+            Write-Host "Invalid number!" -ForegroundColor Red
+            Show-MainMenu
+            return
+        }
+
+        $vpnNameToConnect = $vpnConnections[[int]$choice - 1].Name
+        Write-Host "Selected for connection: '$vpnNameToConnect'" -ForegroundColor Cyan
+        
+        # Using default credentials
+        Connect-VPN -VpnName $vpnNameToConnect -Username $usernameDefault -Password $passwordDefault
+        
+    } catch {
+        Write-Host "An error occurred while enabling VPN: $($_.Exception.Message)" -ForegroundColor Red
+    }
+    Show-MainMenu
+}
+
+# FUNCTION TO DISABLE VPN
+
+function Disable-VpnMenu {
+    Write-Host ""
+    Write-Host "--- Disable VPN ---" -ForegroundColor Yellow
+    Write-Host "---------------------"
+    Disconnect-AllActiveVpnConnections
+    Show-MainMenu
+}
+
 # FUNCTION FOR MAIN MENU
 
 function Show-MainMenu {
@@ -397,24 +453,32 @@ function Show-MainMenu {
     Write-Host "Use numeric keys to navigate the menu." -ForegroundColor Cyan
     Write-Host ""
     Write-Host "Select action:"
-    Write-Host "  1. Automatic VPN setup"
-    Write-Host "  2. Manual VPN setup"
-    Write-Host "  3. Change server for existing connection"
-    Write-Host "  4. Remove network" 
+    Write-Host "  1. Enable VPN"
+    Write-Host "  2. Disable VPN"
+    Write-Host "  3. Automatic VPN setup"
+    Write-Host "  4. Manual VPN setup"
+    Write-Host "  5. Change server for existing connection"
+    Write-Host "  6. Remove network" 
     Write-Host "  0. Exit"
     Write-Host "---------------------------------------------"
     $choice = Read-Host "Enter menu item number:"
     switch ($choice) {
         "1" {
-            Automatic-VPNSetup
+            Enable-VpnMenu
         }
         "2" {
-            Manual-VPNSetup
+            Disable-VpnMenu
         }
         "3" {
+            Automatic-VPNSetup
+        }
+        "4" {
+            Manual-VPNSetup
+        }
+        "5" {
             Change-ExistingServer
         }
-        "4" { 
+        "6" { 
             Remove-VpnConnectionMenu
         }
         "0" {
