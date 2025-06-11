@@ -416,7 +416,6 @@ function Enable-VpnMenu {
         $vpnNameToConnect = $vpnConnections[[int]$choice - 1].Name
         Write-Host "Selected for connection: '$vpnNameToConnect'" -ForegroundColor Cyan
         
-        # Using default credentials
         Connect-VPN -VpnName $vpnNameToConnect -Username $usernameDefault -Password $passwordDefault
         
     } catch {
@@ -448,7 +447,8 @@ function Show-MainMenu {
     Write-Host "Usage instructions:" -ForegroundColor Cyan
     Write-Host ""
     Write-Host "This script will help you manage VPN connections." -ForegroundColor Cyan
-    Write-Host "You can create new connections (automatically or manually)." -ForegroundColor Cyan
+    Write-Host "You can enable or disable VPN." -ForegroundColor Cyan
+    Write-Host "Create new connections (automatically or manually)." -ForegroundColor Cyan
     Write-Host "Change servers for existing ones, and also delete them." -ForegroundColor Cyan
     Write-Host "Use numeric keys to navigate the menu." -ForegroundColor Cyan
     Write-Host ""
