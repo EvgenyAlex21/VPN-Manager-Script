@@ -23,7 +23,7 @@ $vpnNameDefault = "VPN_EvgenyAlex"
 $usernameDefault = "vpn"
 $passwordDefault = "vpn"
 $txtFile = Join-Path -Path $PSScriptRoot -ChildPath "sstp.txt"
-$vpnServersBaseURL = "https://ipspeed.info/freevpn_sstp.php?language=en&page="
+$vpnServersBaseURL = "https://ipspeed.info/ru/free-sstp.php"
 $maxPages = 4
 
 # FUNCTION TO GET RANDOM SSTP SERVERS FROM TXT FILE
@@ -61,37 +61,31 @@ function Get-RandomServerFromFile {
 
 # FUNCTION TO GET RANDOM SSTP SERVERS FROM WEBSITE
 
-function Get-RandomServerFromWeb {
-    param ([string]$BaseURL, [int]$MaxPages)
+function Get-SstpHostsFromWeb {
+    $hosts = @()
+    $url = "https://ipspeed.info/ru/free-sstp.php"
     try {
-        $allServers = @()
-        for ($page = 1; $page -le $MaxPages; $page++) {
-            $URL = "$BaseURL$page"
-            Write-Host "Requesting $URL..." -ForegroundColor Yellow
-            $response = Invoke-WebRequest -Uri $URL -UseBasicParsing -ErrorAction Stop
-            $html = $response.Content
-            $divMatches = [regex]::Matches($html, '<div class="list".*?>(.*?)</div>', [System.Text.RegularExpressions.RegexOptions]::Singleline)
-            foreach ($match in $divMatches) {
-                $divContent = $match.Groups[1].Value
-                $pMatches = [regex]::Matches($divContent, '<p[^>]*>(.*?)</p>', [System.Text.RegularExpressions.RegexOptions]::Singleline)
-                if ($pMatches.Count -ge 2) {
-                    $hostname = $pMatches[1].Groups[1].Value.Trim()
-                    if ($hostname -match '\.') {
-                        $allServers += $hostname
+        $response = Invoke-WebRequest -Uri $url -UseBasicParsing -ErrorAction Stop
+        $html = $response.Content
+
+        $tableMatches = [regex]::Matches($html, '<table[^>]*>(.*?)</table>', [System.Text.RegularExpressions.RegexOptions]::Singleline)
+        if ($tableMatches.Count -gt 0) {
+            $tableContent = $tableMatches[0].Value
+            $rows = [regex]::Matches($tableContent, '<tr[^>]*>(.*?)</tr>', [System.Text.RegularExpressions.RegexOptions]::Singleline)
+
+            foreach ($row in $rows) {
+                $cellMatches = [regex]::Matches($row.Value, '<(?:th|td)[^>]*>(.*?)</(?:th|td)>', [System.Text.RegularExpressions.RegexOptions]::Singleline)
+                if ($cellMatches.Count -ge 3) {
+                    $hostValue = $cellMatches[2].Groups[1].Value.Trim()
+                    if ($hostValue -and $hostValue -match '\.' -and $hostValue -ne 'нет хоста') {
+                        $hosts += $hostValue
                     }
                 }
             }
         }
-        if ($allServers.Count -eq 0) { return $null }
-        foreach ($server in ($allServers | Get-Random -Count $allServers.Count)) {
-            if (Test-VpnServerReachable -Server $server) { return $server }
-        }
-        Write-Host "No available servers found after checking!" -ForegroundColor Red
-        return $null
-    }
-    catch {
-        Write-Host "Error requesting website: $($_.Exception.Message)" -ForegroundColor Red
-        return $null
+        return $hosts
+    } catch {
+        return $hosts
     }
 }
 
