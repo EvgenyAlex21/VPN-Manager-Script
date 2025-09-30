@@ -69,22 +69,34 @@ function Get-SstpHostsFromWeb {
         $html = $response.Content
 
         $tableMatches = [regex]::Matches($html, '<table[^>]*>(.*?)</table>', [System.Text.RegularExpressions.RegexOptions]::Singleline)
-        if ($tableMatches.Count -gt 0) {
-            $tableContent = $tableMatches[0].Value
+        if ($tableMatches.Count -eq 0) {
+            Write-Host "No server tables found on the page!" -ForegroundColor Red
+            return $hosts
+        }
+
+        foreach ($tableMatch in $tableMatches) {
+            $tableContent = $tableMatch.Groups[1].Value
             $rows = [regex]::Matches($tableContent, '<tr[^>]*>(.*?)</tr>', [System.Text.RegularExpressions.RegexOptions]::Singleline)
 
             foreach ($row in $rows) {
                 $cellMatches = [regex]::Matches($row.Value, '<(?:th|td)[^>]*>(.*?)</(?:th|td)>', [System.Text.RegularExpressions.RegexOptions]::Singleline)
                 if ($cellMatches.Count -ge 3) {
                     $hostValue = $cellMatches[2].Groups[1].Value.Trim()
-                    if ($hostValue -and $hostValue -match '\.' -and $hostValue -ne 'нет хоста') {
+                    if ($hostValue -and $hostValue -match '\.' -and $hostValue -ne 'no host') {
                         $hosts += $hostValue
                     }
                 }
             }
         }
+
+        if ($hosts.Count -eq 0) {
+            Write-Host "No servers found in tables!" -ForegroundColor Yellow
+        } else {
+            Write-Host "Extracted $($hosts.Count) servers from the website!" -ForegroundColor Green
+        }
         return $hosts
     } catch {
+        Write-Host "Error loading page: $($_.Exception.Message)" -ForegroundColor Red
         return $hosts
     }
 }
@@ -773,29 +785,6 @@ function Test-InternetAccess {
         Write-Host "Error checking internet access: $($_.Exception.Message)" -ForegroundColor Red
         return $false
     }
-}
-
-# FUNCTION TO GET LIST OF SSTP SERVERS FROM WEBSITE #2
-
-function Get-SstpHostsFromWeb {
-    $hosts = @()
-    for ($page = 1; $page -le $maxPages; $page++) { 
-        $url = "$vpnServersBaseURL$page" 
-        try {
-            $response = Invoke-WebRequest -Uri $url -UseBasicParsing -ErrorAction Stop
-            $html = $response.Content
-            $matches = [regex]::Matches($html, '<span class="list_s2">(.*?)</span>', [System.Text.RegularExpressions.RegexOptions]::Singleline) 
-            foreach ($match in $matches) {
-                $hostValue = $match.Groups[1].Value.Trim()
-                if ($hostValue -and $hostValue -ne 'no host') { # Changed 'нет хоста' to 'no host'
-                    $hosts += $hostValue
-                }
-            }
-        } catch {
-            Write-Host "Error getting data from ${url}: $($_.Exception.Message)" -ForegroundColor Red
-        }
-    }
-    return $hosts
 }
 
 # FUNCTION TO CREATE OR UPDATE VPN CONNECTION
