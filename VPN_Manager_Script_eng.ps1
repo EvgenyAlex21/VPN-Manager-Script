@@ -73,18 +73,34 @@ function Get-SstpHostsFromWeb {
             Write-Host "No server tables found on the page!" -ForegroundColor Red
             return $hosts
         }
+        
+        Write-Host "Found $($tableMatches.Count) tables on the page." -ForegroundColor Cyan
 
         foreach ($tableMatch in $tableMatches) {
             $tableContent = $tableMatch.Groups[1].Value
-            $rows = [regex]::Matches($tableContent, '<tr[^>]*>(.*?)</tr>', [System.Text.RegularExpressions.RegexOptions]::Singleline)
-
-            foreach ($row in $rows) {
-                $cellMatches = [regex]::Matches($row.Value, '<(?:th|td)[^>]*>(.*?)</(?:th|td)>', [System.Text.RegularExpressions.RegexOptions]::Singleline)
-                if ($cellMatches.Count -ge 3) {
-                    $hostValue = $cellMatches[2].Groups[1].Value.Trim()
-                    if ($hostValue -and $hostValue -match '\.' -and $hostValue -ne 'no host') {
-                        $hosts += $hostValue
+            
+            $hasHeaderRows = $tableContent -match '<thead[^>]*>.*?<th[^>]*>.*?HOST NAME.*?</thead>'
+            $hasServerRows = $tableContent -match 'vpn\d+\.opengw\.net'
+            
+            if ($hasHeaderRows -or $hasServerRows) {
+                $rows = [regex]::Matches($tableContent, '<tr[^>]*>(.*?)</tr>', [System.Text.RegularExpressions.RegexOptions]::Singleline)
+                $tableHostsCount = 0
+                
+                foreach ($row in $rows) {
+                    $cellMatches = [regex]::Matches($row.Value, '<(?:th|td)[^>]*>(.*?)</(?:th|td)>', [System.Text.RegularExpressions.RegexOptions]::Singleline)
+                    
+                    if ($cellMatches.Count -ge 3) {
+                        $hostValue = $cellMatches[2].Groups[1].Value.Trim()
+                        
+                        if ($hostValue -and $hostValue -match 'vpn\d+\.opengw\.net' -and $hostValue -ne 'no host') {
+                            $hosts += $hostValue
+                            $tableHostsCount++
+                        }
                     }
+                }
+                
+                if ($tableHostsCount -gt 0) {
+                    Write-Host "  - Extracted $tableHostsCount servers from table." -ForegroundColor Cyan
                 }
             }
         }
@@ -92,8 +108,15 @@ function Get-SstpHostsFromWeb {
         if ($hosts.Count -eq 0) {
             Write-Host "No servers found in tables!" -ForegroundColor Yellow
         } else {
-            Write-Host "Extracted $($hosts.Count) servers from the website!" -ForegroundColor Green
+            Write-Host "Total extracted $($hosts.Count) unique servers from the website!" -ForegroundColor Green
+            
+            $hosts = $hosts | Select-Object -Unique
+            
+            if ($hosts.Count -lt $response.Content.Split("vpn").Length / 2) {
+                Write-Host "Warning: Not all servers may have been extracted. There might be more servers on the page." -ForegroundColor Yellow
+            }
         }
+        
         return $hosts
     } catch {
         Write-Host "Error loading page: $($_.Exception.Message)" -ForegroundColor Red
