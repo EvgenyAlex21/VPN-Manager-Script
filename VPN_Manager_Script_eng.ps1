@@ -80,7 +80,7 @@ function Get-SstpHostsFromWeb {
             $tableContent = $tableMatch.Groups[1].Value
             
             $hasHeaderRows = $tableContent -match '<thead[^>]*>.*?<th[^>]*>.*?HOST NAME.*?</thead>'
-            $hasServerRows = $tableContent -match 'vpn\d+\.opengw\.net'
+            $hasServerRows = $tableContent -match 'opengw\.net'  
             
             if ($hasHeaderRows -or $hasServerRows) {
                 $rows = [regex]::Matches($tableContent, '<tr[^>]*>(.*?)</tr>', [System.Text.RegularExpressions.RegexOptions]::Singleline)
@@ -92,7 +92,7 @@ function Get-SstpHostsFromWeb {
                     if ($cellMatches.Count -ge 3) {
                         $hostValue = $cellMatches[2].Groups[1].Value.Trim()
                         
-                        if ($hostValue -and $hostValue -match 'vpn\d+\.opengw\.net' -and $hostValue -ne 'no host') {
+                        if ($hostValue -and $hostValue -match 'opengw\.net' -and $hostValue -ne 'no host') {
                             $hosts += $hostValue
                             $tableHostsCount++
                         }
@@ -129,13 +129,14 @@ function Get-SstpHostsFromWeb {
 function Test-VpnServerReachable {
     param ([string]$Server)
     try {
-        Write-Host "Checking server availability: $Server..." -ForegroundColor Yellow
-        $ping = Test-Connection -ComputerName $Server -Count 1 -Quiet -ErrorAction SilentlyContinue
+        $hostName = ($Server -split ':')[0]  
+        Write-Host "Checking host availability: $hostName (from server: $Server)..." -ForegroundColor Yellow  
+        $ping = Test-Connection -ComputerName $hostName -Count 1 -Quiet -ErrorAction SilentlyContinue
         if ($ping) {
-            Write-Host "Server $Server is available!" -ForegroundColor Green
+            Write-Host "Host $hostName is available!" -ForegroundColor Green
             return $true
         } else {
-            Write-Host "Server $Server is unavailable! Trying next..." -ForegroundColor Red
+            Write-Host "Host $hostName is unavailable! Trying next..." -ForegroundColor Red
             return $false
         }
     }
@@ -364,7 +365,7 @@ function Change-ExistingServer {
     foreach ($serverAddress in $shuffledServers) {
         Write-Host ""
         Write-Host "-------------------------------------------------------------"
-        Write-Host "Trying server: $serverAddress (source: $serverSourceDescription)" -ForegroundColor Cyan
+        Write-Host "Trying server: $serverAddress (source: $serverSourceDescription)" -ForegroundColor Cyan 
         if (-not (Test-VpnServerReachable -Server $serverAddress)) {
             Write-Host "Server $serverAddress is unavailable (does not ping), trying next..." -ForegroundColor Yellow
             continue
